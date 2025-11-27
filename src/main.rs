@@ -163,6 +163,23 @@ fn get_language(ext: &str) -> &'static str {
 // 辅助函数
 // ═══════════════════════════════════════════════════════════════════════════
 
+/// 计算内容中最长的连续反引号数量
+fn count_max_backticks(content: &str) -> usize {
+    let mut max_count = 0;
+    let mut current_count = 0;
+
+    for ch in content.chars() {
+        if ch == '`' {
+            current_count += 1;
+            max_count = max_count.max(current_count);
+        } else {
+            current_count = 0;
+        }
+    }
+
+    max_count
+}
+
 fn format_size(bytes: u64) -> String {
     const KB: u64 = 1024;
     const MB: u64 = KB * 1024;
@@ -751,6 +768,15 @@ fn write_files(
         let content = fs::read_to_string(&file_path)?;
         let lang = get_language(&entry.extension);
 
+        // 动态计算需要的反引号数量，确保比内容中最长的反引号序列多
+        let max_backticks = count_max_backticks(&content);
+        let fence_count = if max_backticks >= 3 {
+            max_backticks + 1
+        } else {
+            3
+        };
+        let fence: String = "`".repeat(fence_count);
+
         writeln!(writer, "### {}", entry.relative_path)?;
         writeln!(writer)?;
         writeln!(
@@ -760,12 +786,12 @@ fn write_files(
             format_size(entry.size)
         )?;
         writeln!(writer)?;
-        writeln!(writer, "```{}", lang)?;
+        writeln!(writer, "{}{}", fence, lang)?;
         write!(writer, "{}", content)?;
         if !content.ends_with('\n') {
             writeln!(writer)?;
         }
-        writeln!(writer, "```")?;
+        writeln!(writer, "{}", fence)?;
         writeln!(writer)?;
     }
 
