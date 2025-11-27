@@ -1,7 +1,7 @@
 # 📦 Code Collector
 
 [<img alt="github" src="https://img.shields.io/badge/github-araea/code__collector-8da0cb?style=for-the-badge&labelColor=555555&logo=github" height="20">](https://github.com/araea/code-collector)
-<!--[<img alt="crates.io" src="https://img.shields.io/crates/v/code-collector.svg?style=for-the-badge&color=fc8d62&logo=rust" height="20">](https://crates.io/crates/code-collector)-->
+[<img alt="crates.io" src="https://img.shields.io/crates/v/code-collector.svg?style=for-the-badge&color=fc8d62&logo=rust" height="20">](https://crates.io/crates/code-collector)
 
 Rust 命令行工具，递归收集项目源代码并整合至 Markdown 文件，便于统一查阅和 AI 分析。
 
