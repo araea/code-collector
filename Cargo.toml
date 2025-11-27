@@ -1,0 +1,25 @@
+[package]
+name = "code-collector"
+version = "0.1.0"
+edition = "2024"
+authors = ["Nawyjx <3373167460@qq.com>"]
+description = "A Rust tool that recursively collects project source code files and merges them into a single Markdown file for easier AI-assisted code analysis."
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/yourusername/code-collector"
+readme = "README.md"
+keywords = ["code", "collector", "markdown", "source-code", "rust", "cli"]
+categories = ["command-line-utilities", "development-tools"]
+
+[dependencies]
+chrono = "0.4"
+walkdir = "2"
+path-slash = "0.2"
+
+[build-dependencies]
+winres = "0.1"
+
+[profile.release]
+strip = true
+lto = true
+codegen-units = 1
+panic = "abort"
