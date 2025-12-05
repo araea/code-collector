@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 // 常量定义
 // ═══════════════════════════════════════════════════════════════════════════
 
-const VERSION: &str = "2.0.0";
+const VERSION: &str = "0.1.1";
 
 const BINARY_EXTS: &[&str] = &[
     "exe", "dll", "so", "dylib", "png", "jpg", "jpeg", "gif", "bmp", "pdf", "zip", "tar", "gz",
@@ -22,7 +22,7 @@ const BINARY_EXTS: &[&str] = &[
     "pbm", "pnm", "hdr", "exr", "lock", "sum",
 ];
 
-// 忽略的目录名
+// 默认忽略的目录名
 const IGNORED_DIRS: &[&str] = &[
     ".git",
     ".svn",
@@ -51,6 +51,8 @@ struct Config {
     max_bytes: u64,
     skip_exts: HashSet<String>,
     include_exts: Option<HashSet<String>>, // 白名单过滤
+    ignore_dirs: HashSet<String>,          // 忽略的目录名
+    ignore_files: HashSet<String>,         // 忽略的文件名
     show_tree: bool,
     show_toc: bool,
 }
@@ -63,6 +65,8 @@ impl Default for Config {
             max_bytes: 1024 * 1024, // 1MB
             skip_exts: HashSet::new(),
             include_exts: None,
+            ignore_dirs: HashSet::new(),
+            ignore_files: HashSet::new(),
             show_tree: true,
             show_toc: true,
         }
@@ -229,20 +233,22 @@ fn print_help() {
   code_collector -Path <目录> [选项]       # 命令行模式
 
 选项:
-  -Path <路径>        目标目录路径（必需）
-  -OutFile <文件>     输出文件名（默认: all-in-one.md）
-  -MaxBytes <大小>    最大文件大小（默认: 1048576 = 1MB）
-  -SkipExts <扩展名>  跳过的扩展名（空格分隔）
-  -IncludeExts <扩展名>  只包含的扩展名（空格分隔，白名单模式）
-  -NoTree             不生成目录树
-  -NoToc              不生成目录索引
-  -h, --help          显示帮助信息
+  -Path <路径>         目标目录路径（必需）
+  -OutFile <文件>      输出文件名（默认: all-in-one.md）
+  -MaxBytes <大小>     最大文件大小（默认: 1048576 = 1MB）
+  -SkipExts <扩展名>   跳过的扩展名（空格分隔）
+  -IncludeExts <扩展名> 只包含的扩展名（空格分隔，白名单模式）
+  -IgnoreDirs <名称>   忽略的特定目录名（空格分隔，如: tests docs）
+  -IgnoreFiles <名称>  忽略的特定文件名（空格分隔，如: package-lock.json）
+  -NoTree              不生成目录树
+  -NoToc               不生成目录索引
+  -h, --help           显示帮助信息
 
 示例:
   code_collector -Path ./my_project
   code_collector -Path ./src -OutFile code.md -MaxBytes 512000
   code_collector -Path . -IncludeExts "rs toml md"
-  code_collector -Path ./project -SkipExts "test spec"
+  code_collector -Path ./project -IgnoreDirs "tests examples" -IgnoreFiles "cargo.lock"
 "#,
         VERSION
     );
@@ -319,6 +325,26 @@ fn interactive_input() -> Result<Config, Box<dyn std::error::Error>> {
             .map(|s| s.to_lowercase())
             .collect();
 
+        // 忽略的目录名
+        print!("\x1b[33m?\x1b[0m 忽略的目录名（空格分隔，如: tests docs）: ");
+        io::stdout().flush()?;
+        let mut ignore_dirs = String::new();
+        io::stdin().read_line(&mut ignore_dirs)?;
+        config.ignore_dirs = ignore_dirs
+            .split_whitespace()
+            .map(|s| s.to_string())
+            .collect();
+
+        // 忽略的文件名
+        print!("\x1b[33m?\x1b[0m 忽略的文件名（空格分隔，如: package-lock.json）: ");
+        io::stdout().flush()?;
+        let mut ignore_files = String::new();
+        io::stdin().read_line(&mut ignore_files)?;
+        config.ignore_files = ignore_files
+            .split_whitespace()
+            .map(|s| s.to_string())
+            .collect();
+
         // 是否生成目录树
         print!("\x1b[33m?\x1b[0m 生成目录树？[Y/n]: ");
         io::stdout().flush()?;
@@ -344,11 +370,6 @@ fn interactive_input() -> Result<Config, Box<dyn std::error::Error>> {
         "green",
         "✓",
         &format!("输出文件: {}", config.outfile.display()),
-    );
-    print_colored(
-        "green",
-        "✓",
-        &format!("最大大小: {}", format_size(config.max_bytes)),
     );
     println!();
 
@@ -408,6 +429,24 @@ fn parse_args() -> Result<Option<Config>, Box<dyn std::error::Error>> {
                         .collect(),
                 );
             }
+            "-IgnoreDirs" => {
+                i += 1;
+                config.ignore_dirs = args
+                    .get(i)
+                    .ok_or("缺少 -IgnoreDirs 的值")?
+                    .split_whitespace()
+                    .map(|s| s.to_string())
+                    .collect();
+            }
+            "-IgnoreFiles" => {
+                i += 1;
+                config.ignore_files = args
+                    .get(i)
+                    .ok_or("缺少 -IgnoreFiles 的值")?
+                    .split_whitespace()
+                    .map(|s| s.to_string())
+                    .collect();
+            }
             "-NoTree" => config.show_tree = false,
             "-NoToc" => config.show_toc = false,
             arg => return Err(format!("未知参数: {}", arg).into()),
@@ -461,6 +500,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         &config.path,
         &config.path,
         &skip_set,
+        &config.ignore_dirs,
+        &config.ignore_files,
         &config.include_exts,
         config.max_bytes,
         &mut stats,
@@ -547,6 +588,8 @@ fn collect_files(
     dir: &Path,
     base_path: &Path,
     skip_set: &HashSet<String>,
+    ignore_dirs: &HashSet<String>,
+    ignore_files: &HashSet<String>,
     include_exts: &Option<HashSet<String>>,
     max_bytes: u64,
     stats: &mut Stats,
@@ -559,8 +602,8 @@ fn collect_files(
         .map(|n| n.to_string_lossy().to_string())
         .unwrap_or_else(|| ".".to_string());
 
-    // 跳过忽略的目录
-    if IGNORED_DIRS.contains(&dir_name.as_str()) {
+    // 跳过忽略的目录（默认列表 + 用户自定义列表）
+    if IGNORED_DIRS.contains(&dir_name.as_str()) || ignore_dirs.contains(&dir_name) {
         return Ok(());
     }
 
@@ -579,12 +622,18 @@ fn collect_files(
 
     for entry in items {
         let path = entry.path();
+        let file_name = path
+            .file_name()
+            .map(|n| n.to_string_lossy().to_string())
+            .unwrap_or_default();
 
         if path.is_dir() {
             collect_files(
                 &path,
                 base_path,
                 skip_set,
+                ignore_dirs,
+                ignore_files,
                 include_exts,
                 max_bytes,
                 stats,
@@ -593,15 +642,16 @@ fn collect_files(
                 depth + 1,
             )?;
         } else {
+            // 检查特定文件名忽略
+            if ignore_files.contains(&file_name) {
+                stats.files_skipped_filter += 1;
+                continue;
+            }
+
             let ext = path
                 .extension()
                 .and_then(|e| e.to_str())
                 .map(|e| e.to_lowercase())
-                .unwrap_or_default();
-
-            let file_name = path
-                .file_name()
-                .map(|n| n.to_string_lossy().to_string())
                 .unwrap_or_default();
 
             // 检查白名单

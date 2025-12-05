@@ -1,6 +1,6 @@
 [package]
 name = "code-collector"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 authors = ["Nawyjx <3373167460@qq.com>"]
 description = "A Rust tool that recursively collects project source code files and merges them into a single Markdown file for easier AI-assisted code analysis."
